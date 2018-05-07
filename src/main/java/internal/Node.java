@@ -66,6 +66,23 @@ public class Node<WS extends WorldState, B extends Behavior<WS>>  {
 		this.children.add(child);
 	}
 
+	public void debugParent() {
+		System.out.println(this.behavior + ":" + this.getCost());
+		if (this.parent != null) {
+			this.parent.debugParent(2);
+		}
+	}
+
+	public void debugParent(int indent) {
+		for (int i = 0; i < indent; i++) {
+			System.out.print(" ");
+		}
+		System.out.println(this.behavior + ":" + this.getCost());
+		if (this.parent != null) {
+			this.parent.debugParent(indent + 2);
+		}
+	}
+
 	/**
 	 * Spits out some debugging information to stdout.
 	 */
@@ -87,7 +104,7 @@ public class Node<WS extends WorldState, B extends Behavior<WS>>  {
 		for (int i = 0; i < indent; i++) {
 			System.out.print(" ");
 		}
-		System.out.println(this.behavior);
+		System.out.println(this.behavior + ":" + this.behavior.getCost(this.worldState));
 		for (Node n: this.children) {
 			n.debug(2 + indent);
 		}
@@ -143,6 +160,10 @@ public class Node<WS extends WorldState, B extends Behavior<WS>>  {
 	 */
 	public void removeChild(Node myChild) {
 		this.children.remove(myChild);
+	}
+
+	public WS getWorldState() {
+		return this.worldState;
 	}
 }
 

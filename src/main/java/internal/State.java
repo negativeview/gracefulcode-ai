@@ -77,7 +77,13 @@ public class State<WS extends WorldState, G extends Goal<WS>, B extends Behavior
 	 * @return True if the goal is satisfied, false otherwise.
 	 */
 	public boolean isDone() {
-		return this.globalState.goal.isSatisfied(this.currentState);
+		return this.globalState.openSet.size() == 0 && this.currentState == null;
+	}
+
+	public WS getBestWorldState() {
+		if (this.globalState.bestSolution != null)
+			return this.globalState.bestSolution.getWorldState();
+		return this.currentState;
 	}
 
 	/**

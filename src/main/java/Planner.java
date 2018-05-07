@@ -61,11 +61,9 @@ public class Planner<
 	 */
 	public ArrayList<B> getPlan(State<WS, G, B, BP> endState) throws Exception {
 		ArrayList<B> tmp = new ArrayList<B>();
-		WS currentSearch = endState.getWorldState();
-
 		GlobalState<WS, B, BP, G> globalState = endState.getGlobalState();
 
-		Node<WS, B> n = globalState.stateToNode.get(endState.getWorldState());
+		Node<WS, B> n = globalState.stateToNode.get(endState.getBestWorldState());
 		if (n == null) {
 			throw new Exception("End state wasn't saved.");
 		}
@@ -95,13 +93,49 @@ public class Planner<
 		@SuppressWarnings("unchecked")
 		WS worldStateAfterBehavior = (WS)priorWorldState.clone();
 
+		System.out.println("stepStateWithBehavior:" + worldStateAfterBehavior.toString() + ":" + behavior.toString());
+
 		if (worldStateAfterBehavior == priorWorldState) {
 			throw new Exception("Your clone operation seems to be returning the same state.");
 		}
 		behavior.modifyState(worldStateAfterBehavior);
 
-		// We have already investigated this world state and closed it.
-		if (globalState.closedSet.contains(worldStateAfterBehavior)) {
+		Node<WS, B> newNode = new Node<WS, B>(worldStateAfterBehavior, behavior, previousNodeInstance);
+
+		if (globalState.bestSolution == null) {
+			if (globalState.goal.isSatisfied(worldStateAfterBehavior)) {
+				System.out.println("Setting initial best solution");
+				globalState.bestSolution = newNode;
+				globalState.closedSet.add(worldStateAfterBehavior);
+				if (!globalState.stateToNode.containsKey(worldStateAfterBehavior)) {
+					globalState.stateToNode.put(worldStateAfterBehavior, newNode);
+				}
+				globalState.stateToNode.put(worldStateAfterBehavior, newNode);
+				return;
+			}
+		} else {
+			if (newNode.getCost() > globalState.bestSolution.getCost()) {
+				System.out.println("Early Bail A:" + newNode.getCost() + ":" + globalState.bestSolution.getCost());
+				if (!globalState.stateToNode.containsKey(worldStateAfterBehavior)) {
+					globalState.stateToNode.put(worldStateAfterBehavior, newNode);
+				}
+				return;
+			}
+
+			if (globalState.goal.isSatisfied(worldStateAfterBehavior)) {
+				if (newNode.getCost() < globalState.bestSolution.getCost()) {
+					System.out.println("Replacing best solution");
+					globalState.bestSolution = newNode;
+					globalState.closedSet.add(worldStateAfterBehavior);
+					if (!globalState.stateToNode.containsKey(worldStateAfterBehavior)) {
+						globalState.stateToNode.put(worldStateAfterBehavior, newNode);
+						return;
+					}
+				}
+			}
+		}
+
+		if (globalState.stateToNode.containsKey(worldStateAfterBehavior)) {
 			Node<WS, B> previousBestNodeInstance = globalState.stateToNode.get(worldStateAfterBehavior);
 			float previousBestNodeCost = previousBestNodeInstance.getCost();
 
@@ -110,16 +144,31 @@ public class Planner<
 				previousBestNodeInstance.changeParent(previousNodeInstance, behavior);
 			}
 
+			if (globalState.openSet.contains(worldStateAfterBehavior)) {
+				System.out.println("Early Bail B");
+				return;
+			}
+
+			if (globalState.closedSet.contains(worldStateAfterBehavior)) {
+				System.out.println("Early Bail C");
+				return;
+			}
+
+			System.out.println("Adding to the open set: " + worldStateAfterBehavior.toString());
+			globalState.openSet.add(worldStateAfterBehavior);
+
+			System.out.println("Early Bail D");
 			return;
 		}
 
 		// We haven't evaluated this before, make a new node.
-		Node<WS, B> newNode = new Node<WS, B>(worldStateAfterBehavior, behavior, previousNodeInstance);
 		globalState.stateToNode.put(worldStateAfterBehavior, newNode);
 
 		if (debugger != null) {
 			debugger.didAddState(worldStateAfterBehavior);
 		}
+
+		System.out.println("Adding to the open set: " + worldStateAfterBehavior.toString());
 		globalState.openSet.add(worldStateAfterBehavior);
 	}
 
@@ -161,6 +210,9 @@ public class Planner<
 			debugger.didStartStep();
 		}
 
+		System.out.println("Stepping, prior");
+		globalState.rootNode.debug();
+
 		// TODO: Check that we aren't being called with an already-closed
 		// state.
 		for (B b: globalState.behaviorProvider) {
@@ -173,6 +225,7 @@ public class Planner<
 			}
 		}
 
+		System.out.println("Moving " + state.getWorldState());
 		globalState.openSet.remove(state.getWorldState());
 		globalState.closedSet.add(state.getWorldState());
 
@@ -180,11 +233,16 @@ public class Planner<
 			if (debugger != null) {
 				debugger.didEndStep(false);
 			}
+			state.setCurrentState(null);
 			return false;
 		}
 
-		state.setCurrentState(globalState.openSet.poll());
+		WS newState = globalState.openSet.poll();
+		if (newState == null) {
+			return false;
+		}
 
+		state.setCurrentState(newState);
 		if (debugger != null) {
 			debugger.didEndStep(true);
 		}

@@ -6,22 +6,20 @@ import java.util.ArrayList;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
-public class A005_Happiness {
+public class A006_DifferingPathLengths {
 	public class PlannerWorldState implements WorldState {
-		public int happiness = 0;
-		public boolean hasSocializedRecently = false;
+		public int score = 0;
 
 		@Override
 		public Object clone() {
 			PlannerWorldState tmp = new PlannerWorldState();
-			tmp.happiness = this.happiness;
-			tmp.hasSocializedRecently = this.hasSocializedRecently;
+			tmp.score = this.score;
 			return tmp;
 		}
 
 		@Override
 		public String toString() {
-			return "PlannerWorldState[happiness:" + this.happiness + ", hasSocializedRecently: " + this.hasSocializedRecently + "]";
+			return "PlannerWorldState[score: " + this.score + "]";
 		}
 
 		@Override
@@ -30,45 +28,23 @@ public class A005_Happiness {
 			if (!(o instanceof PlannerWorldState)) return false;
 
 			PlannerWorldState pws = (PlannerWorldState)o;
-			if (this.happiness != pws.happiness) return false;
-			if (this.hasSocializedRecently != pws.hasSocializedRecently) return false;
+			if (this.score != pws.score) return false;
 			return true;
 		}
 
 		@Override
 		public int hashCode() {
-			return this.happiness + (this.hasSocializedRecently ? 100 : 0);
+			return this.score;
 		}
 	}
 
 	public abstract class PlannerBehavior implements Behavior<PlannerWorldState> {
 	}
 
-	public class PlannerBehaviorSocialize extends PlannerBehavior {
+	public class PlannerBehaviorSmallStep extends PlannerBehavior {
 		@Override
 		public void modifyState(PlannerWorldState pws) {
-			if (!pws.hasSocializedRecently) {
-				pws.hasSocializedRecently = true;
-				pws.happiness += 10;
-			}
-		}
-
-		@Override
-		public Float getCost(PlannerWorldState worldState) {
-			return 10.0f;
-		}
-
-		@Override
-		public boolean isRunnable(PlannerWorldState worldState) {
-			return true;
-		}
-	}
-
-	public class PlannerBehaviorRelaxAlone extends PlannerBehavior {
-		@Override
-		public void modifyState(PlannerWorldState pws) {
-			pws.hasSocializedRecently = false;
-			pws.happiness -= 5;
+			pws.score += 1;
 		}
 
 		@Override
@@ -82,41 +58,81 @@ public class A005_Happiness {
 		}
 	}
 
+	public class PlannerBehaviorBigStep extends PlannerBehavior {
+		@Override
+		public void modifyState(PlannerWorldState pws) {
+			pws.score += 2;
+		}
+
+		@Override
+		public Float getCost(PlannerWorldState worldState) {
+			return 5.0f;
+		}
+
+		@Override
+		public boolean isRunnable(PlannerWorldState worldState) {
+			return true;
+		}
+	}
+
 	public class PlannerGoal implements Goal<PlannerWorldState> {
 		@Override
 		public boolean isSatisfied(PlannerWorldState pws) {
+			if (pws.score >= 2) return true;
 			return false;
 		}
 
 		@Override
 		public int compare(PlannerWorldState a, PlannerWorldState b) {
-			if (a.happiness > b.happiness) return -1;
-			if (b.happiness > a.happiness) return 1;
+			if (a.score > b.score) return -1;
+			if (b.score > a.score) return 1;
 			return 0;
 		}
 	}
 
 	@Test
-	public void testAlternatingBehaviors() throws Exception {
+	public void testScoreHasAnEffect() throws Exception {
 		PlannerWorldState ws = new PlannerWorldState();
-		ws.happiness = 0;
-		ws.hasSocializedRecently = false;
+		ws.score = 0;
+
 		PlannerGoal pg = new PlannerGoal();
 
 		ArrayList<PlannerBehavior> pbp = new ArrayList<PlannerBehavior>();
-		pbp.add(new PlannerBehaviorRelaxAlone());
-		pbp.add(new PlannerBehaviorSocialize());
+		pbp.add(new PlannerBehaviorSmallStep());
+		pbp.add(new PlannerBehaviorBigStep());
 
 		Planner<PlannerWorldState, PlannerGoal, PlannerBehavior, ArrayList<PlannerBehavior>> p = new Planner<>();
 		State<PlannerWorldState, PlannerGoal, PlannerBehavior, ArrayList<PlannerBehavior>> ps = p.startPlanning(ws, pg, pbp);
 
-		for (int i = 0; i < 10; i++) {
-			boolean didStep = p.stepState(ps);
-			assertTrue("Steps should all succeed.", didStep);
-		}
+		assertEquals(1, ps.getOpenSetSize());
+		assertEquals(0, ps.getClosedSetSize());
+
+		p.stepState(ps);
+
+		assertFalse(ps.isDone());
+		assertEquals(0, ps.getOpenSetSize());
+		assertEquals(2, ps.getClosedSetSize());
+
+		p.stepState(ps);
+
+		assertEquals(0, ps.getOpenSetSize());
+		assertEquals(3, ps.getClosedSetSize());
+		assertTrue("PlannerState should be done now.", ps.isDone());
+		assertEquals(2, ps.getBestWorldState().score);
+
+		System.out.println("Best world state: " + ps.getBestWorldState());
 
 		ArrayList<PlannerBehavior> plan = p.getPlan(ps);
-		assertEquals("We should return 10 behaviors from getPlan: " + plan.toString(), 10, plan.size());
-		assertEquals("First we should socialize: " + plan.toString(), plan.get(9).getClass(), PlannerBehaviorSocialize.class);
+		System.out.println("Behaviors:");
+		for (PlannerBehavior pb: plan) {
+			System.out.println("\t" + pb);
+		}
+
+		System.out.println("State to Node:");
+		for (PlannerWorldState ws2: ps.getGlobalState().stateToNode.keySet()) {
+			System.out.println("\t" + ws2.toString());
+			ps.getGlobalState().stateToNode.get(ws2).debugParent(10);
+		}
+		assertEquals("We should return 2 behaviors from getPlan: " + plan.toString(), 2, plan.size());
 	}
 }

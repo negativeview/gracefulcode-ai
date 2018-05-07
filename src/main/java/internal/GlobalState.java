@@ -37,6 +37,8 @@ public class GlobalState<
 	 */
 	public BP behaviorProvider;
 
+	public Node<WS, B> bestSolution;
+
 	/**
 	 * The goal that we ultimately want to satisfy.
 	 */
