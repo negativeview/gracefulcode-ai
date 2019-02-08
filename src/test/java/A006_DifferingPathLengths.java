@@ -120,19 +120,7 @@ public class A006_DifferingPathLengths {
 		assertTrue("PlannerState should be done now.", ps.isDone());
 		assertEquals(2, ps.getBestWorldState().score);
 
-		System.out.println("Best world state: " + ps.getBestWorldState());
-
 		ArrayList<PlannerBehavior> plan = p.getPlan(ps);
-		System.out.println("Behaviors:");
-		for (PlannerBehavior pb: plan) {
-			System.out.println("\t" + pb);
-		}
-
-		System.out.println("State to Node:");
-		for (PlannerWorldState ws2: ps.getGlobalState().stateToNode.keySet()) {
-			System.out.println("\t" + ws2.toString());
-			ps.getGlobalState().stateToNode.get(ws2).debugParent(10);
-		}
 		assertEquals("We should return 2 behaviors from getPlan: " + plan.toString(), 2, plan.size());
 	}
 }

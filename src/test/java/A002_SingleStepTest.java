@@ -180,7 +180,6 @@ public class A002_SingleStepTest {
 
     @Test
     public void testSingleStepAB() throws Exception {
-    	System.out.println("testSingleStepAB");
 		PlannerWorldState ws = new PlannerWorldState();
 		PlannerGoal pg = new PlannerGoal();
 
@@ -214,7 +213,6 @@ public class A002_SingleStepTest {
 
     @Test
     public void testSingleStepBA() throws Exception {
-    	System.out.println("testSingleStepBA");
 		PlannerWorldState ws = new PlannerWorldState();
 		PlannerGoal pg = new PlannerGoal();
 

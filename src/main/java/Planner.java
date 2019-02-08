@@ -1,6 +1,9 @@
 package com.gracefulcode.ai;
 
 import com.gracefulcode.ai.internal.GlobalState;
+import com.gracefulcode.ai.internal.IllegalCloneException;
+import com.gracefulcode.ai.internal.IllegalCostException;
+import com.gracefulcode.ai.internal.IllegalPlanException;
 import com.gracefulcode.ai.internal.Node;
 import com.gracefulcode.ai.internal.State;
 
@@ -33,6 +36,7 @@ public class Planner<
 	 * @param goal The goal that we are ultimately trying to achieve.
 	 * @param behaviorProvider The behaviors that we are allowed to use in our
 	 *        plan.
+	 *
 	 * @return The initial State.
 	 */
 	public State<WS, G, B, BP> startPlanning(
@@ -54,18 +58,22 @@ public class Planner<
 	 * <p>
 	 * Note that these are in the reverse order that you may expect.
 	 *
-	 * @throws Exception if the end state was not found within the global state.
+	 * @throws IllegalPlanException if the end state was not found within the
+	 *         global state.
+	 * @throws IllegalCostException if a behavior returns a cost that is &lt;= 0
+	 *
 	 * @param endState The State on which you want to end.
+	 *
 	 * @return An ArrayList of behaviors to follow to get from the start to the
 	 *         provided end State, in reverse order.
 	 */
-	public ArrayList<B> getPlan(State<WS, G, B, BP> endState) throws Exception {
+	public ArrayList<B> getPlan(State<WS, G, B, BP> endState) throws IllegalCostException, IllegalPlanException {
 		ArrayList<B> tmp = new ArrayList<B>();
 		GlobalState<WS, B, BP, G> globalState = endState.getGlobalState();
 
 		Node<WS, B> n = globalState.stateToNode.get(endState.getBestWorldState());
 		if (n == null) {
-			throw new Exception("End state wasn't saved.");
+			throw new IllegalPlanException(globalState);
 		}
 		while (n.getParent() != null) {
 			tmp.add(n.getBehavior());
@@ -75,12 +83,25 @@ public class Planner<
 	}
 
 	/**
+	 * Stepping a state is a complicated thing. For sanity, we pulled the meat
+	 * into this function that operates on a single behavior at a time.
+	 * Modifies the State input variable.
+	 *
+	 * @throws IllegalCostException if a behavior returns a cost that is &lt;= 0
+	 * @throws IllegalCloneException if you world state clone operation returns
+	 *         the same world state
+	 *
+	 * @param state Our current planne State. Note that this is not the
+	 *              WorldState, it is something internal that allows partial
+	 *              execution.
+	 * @param behavior The behavior that we are currently evaluating.
+	 * @param debugger The debugger, if the user provided one.
 	 */
 	private void stepStateWithBehavior(
 		State<WS, G, B, BP> state,
 		B behavior,
 		PlannerDebugger<WS, B> debugger
-	) throws Exception {
+	) throws IllegalCostException, IllegalCloneException {
 		WS priorWorldState = state.getWorldState();
 
 		// If we cannot run this behavior, we don't have to do anything.
@@ -93,10 +114,8 @@ public class Planner<
 		@SuppressWarnings("unchecked")
 		WS worldStateAfterBehavior = (WS)priorWorldState.clone();
 
-		System.out.println("stepStateWithBehavior:" + worldStateAfterBehavior.toString() + ":" + behavior.toString());
-
 		if (worldStateAfterBehavior == priorWorldState) {
-			throw new Exception("Your clone operation seems to be returning the same state.");
+			throw new IllegalCloneException(priorWorldState);
 		}
 		behavior.modifyState(worldStateAfterBehavior);
 
@@ -104,7 +123,6 @@ public class Planner<
 
 		if (globalState.bestSolution == null) {
 			if (globalState.goal.isSatisfied(worldStateAfterBehavior)) {
-				System.out.println("Setting initial best solution");
 				globalState.bestSolution = newNode;
 				globalState.closedSet.add(worldStateAfterBehavior);
 				if (!globalState.stateToNode.containsKey(worldStateAfterBehavior)) {
@@ -115,7 +133,6 @@ public class Planner<
 			}
 		} else {
 			if (newNode.getCost() > globalState.bestSolution.getCost()) {
-				System.out.println("Early Bail A:" + newNode.getCost() + ":" + globalState.bestSolution.getCost());
 				if (!globalState.stateToNode.containsKey(worldStateAfterBehavior)) {
 					globalState.stateToNode.put(worldStateAfterBehavior, newNode);
 				}
@@ -124,7 +141,6 @@ public class Planner<
 
 			if (globalState.goal.isSatisfied(worldStateAfterBehavior)) {
 				if (newNode.getCost() < globalState.bestSolution.getCost()) {
-					System.out.println("Replacing best solution");
 					globalState.bestSolution = newNode;
 					globalState.closedSet.add(worldStateAfterBehavior);
 					if (!globalState.stateToNode.containsKey(worldStateAfterBehavior)) {
@@ -145,19 +161,14 @@ public class Planner<
 			}
 
 			if (globalState.openSet.contains(worldStateAfterBehavior)) {
-				System.out.println("Early Bail B");
 				return;
 			}
 
 			if (globalState.closedSet.contains(worldStateAfterBehavior)) {
-				System.out.println("Early Bail C");
 				return;
 			}
 
-			System.out.println("Adding to the open set: " + worldStateAfterBehavior.toString());
 			globalState.openSet.add(worldStateAfterBehavior);
-
-			System.out.println("Early Bail D");
 			return;
 		}
 
@@ -168,7 +179,6 @@ public class Planner<
 			debugger.didAddState(worldStateAfterBehavior);
 		}
 
-		System.out.println("Adding to the open set: " + worldStateAfterBehavior.toString());
 		globalState.openSet.add(worldStateAfterBehavior);
 	}
 
@@ -180,11 +190,14 @@ public class Planner<
 	 * stepState will alter the passed in state to represent the new state of
 	 * the AI system.
 	 *
-	 * @throws Exception if the world state clone is the same object.
+	 * @throws IllegalCloneException if the world state clone is the same object.
+	 * @throws IllegalCostException if a behavior returns a cost that is &lt;= 0
+	 *
 	 * @param state The current state of this AI system.
+	 *
 	 * @return True if the AI system cannot proceed any more, otherwise False.
 	 */
-	public boolean stepState(State<WS, G, B, BP> state) throws Exception {
+	public boolean stepState(State<WS, G, B, BP> state) throws IllegalCostException, IllegalCloneException {
 		return this.stepState(state, null);
 	}
 
@@ -197,21 +210,21 @@ public class Planner<
 	 * stepState will alter the passed in state to represent the new state of
 	 * the AI system.
 	 *
-	 * @throws Exception if the world state clone is the same object.
+	 * @throws IllegalCostException if a behavior returns a cost that is &lt;= 0
+	 * @throws IllegalCloneException if your WorldState.clone() operation returns the same object
+	 *
 	 * @param state The current state of this AI system.
 	 * @param debugger The debugger you want to use in order to debug the AI
 	 *        system.
+	 *
 	 * @return True if the AI system cannot proceed any more, otherwise False.
 	 */
-	public boolean stepState(State<WS, G, B, BP> state, PlannerDebugger<WS, B> debugger) throws Exception {
+	public boolean stepState(State<WS, G, B, BP> state, PlannerDebugger<WS, B> debugger) throws IllegalCostException, IllegalCloneException {
 		GlobalState<WS, B, BP, G> globalState = state.getGlobalState();
 
 		if (debugger != null) {
 			debugger.didStartStep();
 		}
-
-		System.out.println("Stepping, prior");
-		globalState.rootNode.debug();
 
 		// TODO: Check that we aren't being called with an already-closed
 		// state.
@@ -225,7 +238,6 @@ public class Planner<
 			}
 		}
 
-		System.out.println("Moving " + state.getWorldState());
 		globalState.openSet.remove(state.getWorldState());
 		globalState.closedSet.add(state.getWorldState());
 

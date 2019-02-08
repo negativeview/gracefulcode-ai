@@ -66,14 +66,14 @@ public class Node<WS extends WorldState, B extends Behavior<WS>>  {
 		this.children.add(child);
 	}
 
-	public void debugParent() {
+	public void debugParent() throws IllegalCostException {
 		System.out.println(this.behavior + ":" + this.getCost());
 		if (this.parent != null) {
 			this.parent.debugParent(2);
 		}
 	}
 
-	public void debugParent(int indent) {
+	public void debugParent(int indent) throws IllegalCostException {
 		for (int i = 0; i < indent; i++) {
 			System.out.print(" ");
 		}
@@ -104,6 +104,7 @@ public class Node<WS extends WorldState, B extends Behavior<WS>>  {
 		for (int i = 0; i < indent; i++) {
 			System.out.print(" ");
 		}
+
 		System.out.println(this.behavior + ":" + this.behavior.getCost(this.worldState));
 		for (Node n: this.children) {
 			n.debug(2 + indent);
@@ -125,16 +126,24 @@ public class Node<WS extends WorldState, B extends Behavior<WS>>  {
 	 * to the cost of its parent node. This means that we effectively walk the
 	 * tree back to the root node whenver you call this function.
 	 *
+	 * @throws IllegalCostException if your cost ever returns &lt;= 0.0f
+	 *
 	 * @return The cost of this behavior and every behavior that comes before it.
 	 */
-	public Float getCost() {
+	public Float getCost() throws IllegalCostException {
 		if (this.behavior == null) {
 			return 0.0f;
 		}
-		if (this.parent != null) {
-			return this.behavior.getCost(this.worldState) + this.parent.getCost();
+
+		Float tmpCost = this.behavior.getCost(this.worldState);
+		if (tmpCost <= 0) {
+			throw new IllegalCostException(this.behavior, tmpCost);
 		}
-		return this.behavior.getCost(this.worldState);
+
+		if (this.parent != null) {
+			return tmpCost + this.parent.getCost();
+		}
+		return tmpCost;
 	}
 
 	/**

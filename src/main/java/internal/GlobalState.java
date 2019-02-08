@@ -6,7 +6,7 @@ import com.gracefulcode.ai.WorldState;
 
 import java.util.Comparator;
 import java.util.HashSet;
-import java.util.Hashtable;
+import java.util.HashMap;
 import java.util.PriorityQueue;
 
 /**
@@ -70,7 +70,7 @@ public class GlobalState<
 	 * the root state, but should be one for any other state that we've
 	 * discovered in our journey.
 	 */
-	public Hashtable<WS, Node<WS, B>> stateToNode;
+	public HashMap<WS, Node<WS, B>> stateToNode;
 
 	public GlobalState(WS initialState, BP behaviorProvider, G goal) {
 		this.initialState = initialState;
@@ -79,7 +79,7 @@ public class GlobalState<
 		this.closedSet = new HashSet<WS>();
 		this.openSet = new PriorityQueue<WS>(10, this);
 		this.rootNode = new Node<WS, B>(initialState);
-		this.stateToNode = new Hashtable<WS, Node<WS, B>>();
+		this.stateToNode = new HashMap<WS, Node<WS, B>>();
 		this.stateToNode.put(this.initialState, this.rootNode);
 	}
 
@@ -91,7 +91,9 @@ public class GlobalState<
 	 * data you want from this class.
 	 *
 	 * @throws Exception if the provided state is not a known state.
+	 *
 	 * @param state The world state you are asking about.
+	 *
 	 * @return The cumulative cost from the root node to this world state.
 	 */
 	public float getBestKnownCost(WS state) throws Exception {
