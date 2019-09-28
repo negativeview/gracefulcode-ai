@@ -1,4 +1,4 @@
-#Graceful AI
+# Graceful AI
 
 ![](https://github.com/negativeview/gracefulcode-ai/workflows/Java%20CI/badge.svg)
 
