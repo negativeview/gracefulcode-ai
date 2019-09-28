@@ -1,5 +1,7 @@
 #Graceful AI
 
+![](https://github.com/negativeview/gracefulcode-ai/workflows/Java%20CI/badge.svg)
+
 ## Installation
 
 This project is published to the Sonatype Maven repository. You can integrate the lib into your project by just adding the dependencies to your build.gradle file.
